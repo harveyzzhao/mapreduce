@@ -1,4 +1,4 @@
-**MapReduce: A High-Performance Distributed Computing Framework 🚀**  
+# MapReduce: A High-Performance Distributed Computing Framework 🚀
 
 This repository showcases a **lightweight, yet powerful** implementation of the MapReduce framework. This serves to demo **real-world distributed systems principles** with a focus on **fault tolerance, concurrency, and parallel task scheduling**.  
 
