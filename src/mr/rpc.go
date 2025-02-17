@@ -23,18 +23,18 @@ type ExampleReply struct {
 }
 
 // Add your RPC definitions here.
-type GetTaskRequest struct {
+type GetTaskArgs struct {
 
 }
 
 type GetTaskReply struct {
-	TaskType string
-	TaskID int
+	TaskType string // map | reduce | wait | exit
+	TaskID int // X for map tasks, Y for reduce tasks
 	Filename string
 	NReduce int
 }
 
-type CompleteTaskRequest struct {
+type CompleteTaskArgs struct {
 	TaskType string
 	TaskID int
 }

@@ -1,33 +1,104 @@
 package mr
 
-import "log"
-import "net"
-import "os"
-import "net/rpc"
-import "net/http"
+import (
+	"fmt"
+	"log"
+	"net"
+	"net/http"
+	"net/rpc"
+	"os"
+	"sync"
+)
 
+type MapTask struct {
+	ID       int
+	Status   string // "notstarted" | "inprogress" | "completed"
+	Filename string
+}
+
+type ReduceTask struct {
+	ID     int
+	Status string // "notstarted" | "inprogress" | "completed"
+	Key    string
+}
 
 type Coordinator struct {
 	// Your definitions here.
-
+	Mu          sync.Mutex
+	MapTasks    []MapTask
+	ReduceTasks []ReduceTask
+	NReduce     int
+	State       string // "map | reduce | completed"
 }
 
 // Your code here -- RPC handlers for the worker to call.
+func (c *Coordinator) GetTaskHandler(args *GetTaskArgs, reply *GetTaskReply) error {
+	c.Mu.Lock()
+	defer c.Mu.Unlock()
 
-//
-// an example RPC handler.
-//
-// the RPC argument and reply types are defined in rpc.go.
-//
-func (c *Coordinator) Example(args *ExampleArgs, reply *ExampleReply) error {
-	reply.Y = args.X + 1
-	return nil
+	if c.State == "map" {
+		task := c.getNotStartedMapTask()
+		if task != (MapTask{}) {
+			reply.TaskType = "map"
+			reply.TaskID = task.ID
+			reply.Filename = task.Filename
+			reply.NReduce = c.NReduce
+			return nil
+		}
+		// all tasks are in progress, instruct worker to wait
+		if task == (MapTask{}) && !c.allMapTasksCompleted() {
+			reply.TaskType = "wait"
+			// TaskID, Filename and NReduce fields unused
+			return nil
+		} else {
+			c.State = "reduce"
+		}
+	}
+
+	if c.State == "reduce" {
+		task := c.getNotStartedReduceTask()
+		if task != (ReduceTask{}) {
+			reply.TaskType = "reduce"
+			reply.TaskID = task.ID
+			// reduce tasks do not use Filename and NReduce fields
+		}
+		if task == (ReduceTask{}) && !c.allReduceTasksCompleted() {
+			reply.TaskType = "wait"
+			// TaskID, Filename and NReduce fields unused
+			return nil
+		} else {
+			c.State = "completed"
+		}
+	}
+
+	// if the program is here, it means
+	// we have processed all map and reduce tasks.
+	// tell worker to shutdown
+	if c.State == "completed" {
+		reply.TaskType = "shutdown"
+		return nil
+	}
+
+	return fmt.Errorf("unexpected coordinator state: %s", c.State)
 }
 
+func (c *Coordinator) getNotStartedMapTask() MapTask {
+	panic("unimplemented")
+}
 
-//
+func (c *Coordinator) allMapTasksCompleted() bool {
+    panic("unimplemented")
+}
+
+func (c *Coordinator) getNotStartedReduceTask() ReduceTask {
+    panic("unimplemented")
+}
+
+func (c *Coordinator) allReduceTasksCompleted() bool {
+    panic("unimplemented")
+}
+
 // start a thread that listens for RPCs from worker.go
-//
 func (c *Coordinator) server() {
 	rpc.Register(c)
 	rpc.HandleHTTP()
@@ -41,30 +112,23 @@ func (c *Coordinator) server() {
 	go http.Serve(l, nil)
 }
 
-//
 // main/mrcoordinator.go calls Done() periodically to find out
 // if the entire job has finished.
-//
 func (c *Coordinator) Done() bool {
 	ret := false
 
 	// Your code here.
 
-
 	return ret
 }
 
-//
 // create a Coordinator.
 // main/mrcoordinator.go calls this function.
 // nReduce is the number of reduce tasks to use.
-//
 func MakeCoordinator(files []string, nReduce int) *Coordinator {
 	c := Coordinator{}
 
 	// Your code here.
-	
-
 
 	c.server()
 	return &c
