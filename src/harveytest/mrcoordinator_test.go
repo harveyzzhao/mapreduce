@@ -189,6 +189,33 @@ func TestGetTaskHandlerConcurrency(t *testing.T) {
 	}
 }
 
+func TestCreateMapTasks(t *testing.T) {
+    files := []string{"file1.txt", "file2.txt", "file3.txt"}
+    expectedTasks := []*mr.MapTask{
+        {ID: 0, Status: "notstarted", Filename: "file1.txt"},
+        {ID: 1, Status: "notstarted", Filename: "file2.txt"},
+        {ID: 2, Status: "notstarted", Filename: "file3.txt"},
+    }
+
+    tasks := mr.CreateMapTasks(files)
+
+    if len(tasks) != len(expectedTasks) {
+        t.Fatalf("expected %d tasks, got %d", len(expectedTasks), len(tasks))
+    }
+
+    for i, task := range tasks {
+        if task.ID != expectedTasks[i].ID {
+            t.Errorf("expected task ID %d, got %d", expectedTasks[i].ID, task.ID)
+        }
+        if task.Status != expectedTasks[i].Status {
+            t.Errorf("expected task Status %s, got %s", expectedTasks[i].Status, task.Status)
+        }
+        if task.Filename != expectedTasks[i].Filename {
+            t.Errorf("expected task Filename %s, got %s", expectedTasks[i].Filename, task.Filename)
+        }
+    }
+}
+
 // helpers
 func mockCoordinator(state string, mapTasks []*mr.MapTask, reduceTasks []*mr.ReduceTask) *mr.Coordinator {
     return &mr.Coordinator{
