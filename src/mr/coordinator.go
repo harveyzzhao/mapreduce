@@ -8,18 +8,21 @@ import (
 	"net/rpc"
 	"os"
 	"sync"
+	"time"
 )
 
 type MapTask struct {
 	ID       int
 	Status   string // "notstarted" | "inprogress" | "completed"
 	Filename string
+	StartTime time.Time
 }
 
 type ReduceTask struct {
 	ID     int
 	Status string // "notstarted" | "inprogress" | "completed"
 	Key    string
+	StartTime time.Time
 }
 
 type Coordinator struct {
@@ -40,11 +43,13 @@ func (c *Coordinator) GetTaskHandler(args *GetTaskArgs, reply *GetTaskReply) err
 		task := c.getNotStartedMapTask()
 		if task != nil {
             task.Status = "inprogress"
+			task.StartTime = time.Now()
             
 			reply.TaskType = "map"
 			reply.TaskID = task.ID
 			reply.Filename = task.Filename
 			reply.NReduce = c.NReduce
+
 			return nil
 		} else if !c.allMapTasksCompleted() {
 			reply.TaskType = "wait"
@@ -59,6 +64,7 @@ func (c *Coordinator) GetTaskHandler(args *GetTaskArgs, reply *GetTaskReply) err
 		task := c.getNotStartedReduceTask()
 		if task != nil {
             task.Status = "inprogress"
+			task.StartTime = time.Now()
 
 			reply.TaskType = "reduce"
 			reply.TaskID = task.ID

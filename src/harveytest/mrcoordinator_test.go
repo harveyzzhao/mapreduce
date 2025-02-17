@@ -3,6 +3,7 @@ package harveytest
 import (
 	"sync"
 	"testing"
+	"time"
 
 	"6.5840/mr"
 )
@@ -17,6 +18,8 @@ func TestGetTaskHandler(t *testing.T) {
         expectedID   int
         expectedFilename string
         expectedNReduce int
+		expectedMapTasksWithStartTimeIDs []int
+		expectedReduceTasksWithStartTimeIDs []int
     }{
         {
             name: "Map task available",
@@ -31,13 +34,15 @@ func TestGetTaskHandler(t *testing.T) {
             expectedID: 1,
             expectedFilename: "file1",
             expectedNReduce: 10,
+			expectedMapTasksWithStartTimeIDs: []int{1},
+			expectedReduceTasksWithStartTimeIDs: []int{},
         },
         {
             name: "All map tasks in progress",
             state: "map",
             mapTasks: []*mr.MapTask{
-                {ID: 1, Status: "inprogress", Filename: "file1"},
-				{ID: 2, Status: "completed", Filename: "file2"},
+                {ID: 1, Status: "inprogress", Filename: "file1", StartTime: time.Now()},
+				{ID: 2, Status: "completed", Filename: "file2", StartTime: time.Now()},
             },
             reduceTasks: []*mr.ReduceTask{
 				{ID: 1, Status: "notstarted"},
@@ -46,56 +51,64 @@ func TestGetTaskHandler(t *testing.T) {
 			expectedID: 0,
 			expectedFilename: "",
 			expectedNReduce: 0,
+			expectedMapTasksWithStartTimeIDs: []int{1, 2},
+			expectedReduceTasksWithStartTimeIDs: []int{},
         },
         {
             name: "Reduce task available",
             state: "reduce",
             mapTasks: []*mr.MapTask{
-				{ID: 1, Status: "completed", Filename: "file1"},
-				{ID: 2, Status: "completed", Filename: "file2"},
+				{ID: 1, Status: "completed", Filename: "file1", StartTime: time.Now()},
+				{ID: 2, Status: "completed", Filename: "file2", StartTime: time.Now()},
 			},
             reduceTasks: []*mr.ReduceTask{
-                {ID: 1, Status: "inprogress"},
+				{ID: 1, Status: "inprogress", StartTime: time.Now()},
 				{ID: 2, Status: "notstarted"},
             },
             expectedType: "reduce",
             expectedID: 2,
 			expectedFilename: "",
 			expectedNReduce: 0,
+			expectedMapTasksWithStartTimeIDs: []int{1, 2},
+			expectedReduceTasksWithStartTimeIDs: []int{1, 2},
         },
         {
             name: "All reduce tasks in progress",
             state: "reduce",
             mapTasks: []*mr.MapTask{
-				{ID: 1, Status: "completed", Filename: "file1"},
-				{ID: 2, Status: "completed", Filename: "file2"},
+				{ID: 1, Status: "completed", Filename: "file1", StartTime: time.Now()},
+				{ID: 2, Status: "completed", Filename: "file2", StartTime: time.Now()},
 			},
             reduceTasks: []*mr.ReduceTask{
-                {ID: 1, Status: "inprogress"},
-				{ID: 2, Status: "inprogress"},
-				{ID: 3, Status: "completed"},
+                {ID: 1, Status: "inprogress", StartTime: time.Now()},
+				{ID: 2, Status: "inprogress", StartTime: time.Now()},
+				{ID: 3, Status: "completed", StartTime: time.Now()},
             },
             expectedType: "wait",
 			expectedID: 0,
 			expectedFilename: "",
 			expectedNReduce: 0,
+			expectedMapTasksWithStartTimeIDs: []int{1, 2},
+			expectedReduceTasksWithStartTimeIDs: []int{1, 2, 3},
         },
         {
             name: "All tasks completed",
             state: "completed",
             mapTasks: []*mr.MapTask{
-				{ID: 1, Status: "completed", Filename: "file1"},
-				{ID: 2, Status: "completed", Filename: "file2"},
+				{ID: 1, Status: "completed", Filename: "file1", StartTime: time.Now()},
+				{ID: 2, Status: "completed", Filename: "file2", StartTime: time.Now()},
 			},
             reduceTasks: []*mr.ReduceTask{
-                {ID: 1, Status: "completed"},
-				{ID: 2, Status: "completed"},
-				{ID: 3, Status: "completed"},
+                {ID: 1, Status: "completed", StartTime: time.Now()},
+				{ID: 2, Status: "completed", StartTime: time.Now()},
+				{ID: 3, Status: "completed", StartTime: time.Now()},
             },
             expectedType: "shutdown",
 			expectedID: 0,
 			expectedFilename: "",
 			expectedNReduce: 0,
+			expectedMapTasksWithStartTimeIDs: []int{1, 2},
+			expectedReduceTasksWithStartTimeIDs: []int{1, 2, 3},
         },
     }
 
@@ -120,6 +133,13 @@ func TestGetTaskHandler(t *testing.T) {
             if reply.NReduce != tt.expectedNReduce {
                 t.Errorf("expected NReduce %d, got %d", tt.expectedNReduce, reply.NReduce)
             }
+			if !containsExactlyInAnyOrderInt(getMapTasksWithStartTimeIDs(coordinator.MapTasks), tt.expectedMapTasksWithStartTimeIDs) {
+				t.Errorf("expected MapTasks ids with start time: %v, got %v", tt.expectedMapTasksWithStartTimeIDs, getMapTasksWithStartTimeIDs(coordinator.MapTasks))
+			}
+
+			if !containsExactlyInAnyOrderInt(getReduceTasksWithStartTimeIDs(coordinator.ReduceTasks), tt.expectedReduceTasksWithStartTimeIDs) {
+				t.Errorf("expected ReduceTask ids with start time: %v, got %v", tt.expectedReduceTasksWithStartTimeIDs, getReduceTasksWithStartTimeIDs(coordinator.ReduceTasks))
+			}
         })
     }
 }
@@ -240,6 +260,44 @@ func containsExactlyInAnyOrder(a, b []*mr.GetTaskReply) bool {
             return false
         }
         counts[*reply]--
+    }
+    return true
+}
+
+func getMapTasksWithStartTimeIDs(tasks []*mr.MapTask) []int {
+    var ids []int
+    for _, task := range tasks {
+        if !task.StartTime.IsZero() {
+            ids = append(ids, task.ID)
+        }
+    }
+    return ids
+}
+
+func getReduceTasksWithStartTimeIDs(tasks []*mr.ReduceTask) []int {
+	var ids []int
+    for _, task := range tasks {
+        if !task.StartTime.IsZero() {
+            ids = append(ids, task.ID)
+        }
+    }
+    return ids
+}
+
+func containsExactlyInAnyOrderInt(a, b []int) bool {
+    if len(a) != len(b) {
+        return false
+    }
+
+    counts := make(map[int]int)
+    for _, id := range a {
+        counts[id]++
+    }
+    for _, id := range b {
+        if counts[id] == 0 {
+            return false
+        }
+        counts[id]--
     }
     return true
 }
