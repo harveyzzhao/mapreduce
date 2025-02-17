@@ -25,8 +25,8 @@ type ReduceTask struct {
 type Coordinator struct {
 	// Your definitions here.
 	Mu          sync.Mutex
-	MapTasks    []MapTask
-	ReduceTasks []ReduceTask
+	MapTasks    []*MapTask
+	ReduceTasks []*ReduceTask
 	NReduce     int
 	State       string // "map | reduce | completed"
 }
@@ -38,15 +38,15 @@ func (c *Coordinator) GetTaskHandler(args *GetTaskArgs, reply *GetTaskReply) err
 
 	if c.State == "map" {
 		task := c.getNotStartedMapTask()
-		if task != (MapTask{}) {
+		if task != nil {
+            task.Status = "inprogress"
+            
 			reply.TaskType = "map"
 			reply.TaskID = task.ID
 			reply.Filename = task.Filename
 			reply.NReduce = c.NReduce
 			return nil
-		}
-		// all tasks are in progress, instruct worker to wait
-		if task == (MapTask{}) && !c.allMapTasksCompleted() {
+		} else if !c.allMapTasksCompleted() {
 			reply.TaskType = "wait"
 			// TaskID, Filename and NReduce fields unused
 			return nil
@@ -57,12 +57,14 @@ func (c *Coordinator) GetTaskHandler(args *GetTaskArgs, reply *GetTaskReply) err
 
 	if c.State == "reduce" {
 		task := c.getNotStartedReduceTask()
-		if task != (ReduceTask{}) {
+		if task != nil {
+            task.Status = "inprogress"
+
 			reply.TaskType = "reduce"
 			reply.TaskID = task.ID
 			// reduce tasks do not use Filename and NReduce fields
-		}
-		if task == (ReduceTask{}) && !c.allReduceTasksCompleted() {
+            return nil
+		} else if !c.allReduceTasksCompleted() {
 			reply.TaskType = "wait"
 			// TaskID, Filename and NReduce fields unused
 			return nil
@@ -82,20 +84,40 @@ func (c *Coordinator) GetTaskHandler(args *GetTaskArgs, reply *GetTaskReply) err
 	return fmt.Errorf("unexpected coordinator state: %s", c.State)
 }
 
-func (c *Coordinator) getNotStartedMapTask() MapTask {
-	panic("unimplemented")
+func (c *Coordinator) getNotStartedMapTask() *MapTask {
+	for _, task := range(c.MapTasks) {
+        if task.Status == "notstarted" {
+            return task
+        }
+    }
+    return nil
 }
 
 func (c *Coordinator) allMapTasksCompleted() bool {
-    panic("unimplemented")
+    for _, task := range(c.MapTasks) {
+        if task.Status != "completed" {
+            return false
+        }
+    }
+    return true
 }
 
-func (c *Coordinator) getNotStartedReduceTask() ReduceTask {
-    panic("unimplemented")
+func (c *Coordinator) getNotStartedReduceTask() *ReduceTask {
+    for _, task := range(c.ReduceTasks) {
+        if task.Status == "notstarted" {
+            return task
+        }
+    }
+    return nil
 }
 
 func (c *Coordinator) allReduceTasksCompleted() bool {
-    panic("unimplemented")
+    for _, task := range(c.ReduceTasks) {
+        if task.Status != "completed" {
+            return false
+        }
+    }
+    return true
 }
 
 // start a thread that listens for RPCs from worker.go
@@ -118,7 +140,7 @@ func (c *Coordinator) Done() bool {
 	ret := false
 
 	// Your code here.
-
+    
 	return ret
 }
 
@@ -127,9 +149,9 @@ func (c *Coordinator) Done() bool {
 // nReduce is the number of reduce tasks to use.
 func MakeCoordinator(files []string, nReduce int) *Coordinator {
 	c := Coordinator{}
-
 	// Your code here.
 
 	c.server()
 	return &c
 }
+
