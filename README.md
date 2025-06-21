@@ -16,6 +16,4 @@ This repository showcases a **lightweight, yet powerful** implementation of the 
 🚀 **File I/O & Key-Value Storage** – Simulates large-scale data processing across distributed nodes.  
 🚀 **Systems Programming** – Hands-on experience in **process management, synchronization, and load balancing**.  
 
-This time around, I am trying to **rapidly learn, design, and implement** distributed computing paradigms while optimizing for **performance, reliability, and concurrency**. A deep dive into **distributed systems engineering**, built **from first principles**. 🚀🔥  
-
-💡 Open to feedback, contributions, and discussions on optimizing distributed workloads!
+This time around, I am trying to **rapidly learn, design, and implement** distributed computing paradigms while optimizing for **performance, reliability, and concurrency**. A deep dive into **distributed systems engineering**, built **from first principles**. 🚀🔥
